@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator Buku HTML Interaktif</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts for rich book typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,600;1,400&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        bookPaper: '#fdfbf7',
+                        bookVintage: '#f4ecd8',
+                        bookDark: '#1e1e24',
+                        bookAccent: '#d97706'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Lora', 'serif'],
+                        merriweather: ['Merriweather', 'serif'],
+                        script: ['Dancing Script', 'cursive']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.2);
+            border-radius: 4px;
+        }
+
+        /* Book Flip Container & 3D Perspective Effects */
+        .book-viewport {
+            perspective: 2000px;
+        }
+
+        .book-container {
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* Page Flip Animation Classes */
+        .page-sheet {
+            transform-origin: left center;
+            transition: transform 0.7s cubic-bezier(0.645, 0.045, 0.355, 1), box-shadow 0.7s ease;
+            transform-style: preserve-3d;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .page-sheet.flipped {
+            transform: rotateY(-180deg);
+        }
+
+        /* Spine crease shadow effect */
+        .book-spine-shadow {
+            background: linear-gradient(to right, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.02) 8%, rgba(0,0,0,0) 100%);
+        }
+
+        .book-spine-right {
+            background: linear-gradient(to left, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.02) 8%, rgba(0,0,0,0) 100%);
+        }
+
+        /* Frame Themes */
+        .theme-classic { background-color: #ffffff; color: #1a202c; font-family: 'Lora', serif; }
+        .theme-vintage { background-color: #f4ecd8; color: #3d3122; font-family: 'Merriweather', serif; }
+        .theme-dark { background-color: #1f2937; color: #f3f4f6; font-family: 'Inter', sans-serif; }
+        .theme-pastel { background-color: #fce4ec; color: #4a148c; font-family: 'Inter', sans-serif; }
+        .theme-modern { background-color: #f0fdf4; color: #166534; font-family: 'Inter', sans-serif; }
+
+        /* Canvas overlay preview helper */
+        .editable-highlight:hover {
+            outline: 2px dashed #3b82f6;
+            outline-offset: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col antialiased">
+
+    <!-- Top Header -->
+    <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm sticky top-0 z-30">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-xl shadow-md shadow-amber-500/30">
+                <i class="fa-solid fa-book-open"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg text-slate-900 leading-tight">BookCraft Studio</h1>
+                <p class="text-xs text-slate-500">Generator Buku Interaktif HTML</p>
+            </div>
+        </div>
+
+        <!-- Book Title Input -->
+        <div class="hidden md:flex items-center bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 focus-within:ring-2 focus-within:ring-amber-500 focus-within:bg-white transition-all w-72">
+            <i class="fa-solid fa-pen text-slate-400 mr-2 text-sm"></i>
+            <input type="text" id="globalBookTitle" value="Buku Cerita Saya" placeholder="Judul Buku..." class="bg-transparent text-sm font-semibold text-slate-700 outline-none w-full" oninput="updateBookTitle(this.value)">
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center space-x-2">
+            <button onclick="openTemplateModal()" class="px-3 py-2 text-xs md:text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1.5">
+                <i class="fa-solid fa-wand-magic-sparkles text-amber-500"></i>
+                <span class="hidden sm:inline">Templat</span>
+            </button>
+            <button onclick="toggleReaderModal()" class="px-3 py-2 text-xs md:text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition flex items-center gap-1.5 border border-amber-200">
+                <i class="fa-solid fa-circle-play text-amber-600"></i>
+                <span class="hidden sm:inline">Mode Baca</span>
+            </button>
+            <button onclick="exportStandaloneHTML()" class="px-4 py-2 text-xs md:text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition flex items-center gap-2 shadow-md shadow-amber-600/20">
+                <i class="fa-solid fa-download"></i>
+                <span>Ekspor HTML</span>
+            </button>
+            <div class="h-6 w-px bg-slate-200 mx-1"></div>
+            <button onclick="exportJSON()" title="Simpan Proyek (JSON)" class="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition">
+                <i class="fa-solid fa-file-export"></i>
+            </button>
+            <label title="Muat Proyek (JSON)" class="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer">
+                <i class="fa-solid fa-file-import"></i>
+                <input type="file" id="jsonInput" accept=".json" class="hidden" onchange="importJSON(event)">
+            </label>
+        </div>
+    </header>
+
+    <!-- Main Studio Layout -->
+    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+
+        <!-- Sidebar Page List & Tools -->
+        <aside class="w-full lg:w-80 bg-white border-r border-slate-200 flex flex-col h-auto lg:h-[calc(100vh-61px)] flex-shrink-0">
+            <!-- Sidebar Tabs / Header -->
+            <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <span class="font-semibold text-xs uppercase tracking-wider text-slate-500">Daftar Halaman (<span id="pageCount">0</span>)</span>
+                <button onclick="addNewPage()" class="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-semibold hover:bg-amber-600 transition flex items-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-plus"></i> Halaman Baru
+                </button>
+            </div>
+
+            <!-- Page Thumbnail Scroll List -->
+            <div id="pagesThumbnailsContainer" class="flex-1 overflow-y-auto p-4 space-y-3 max-h-60 lg:max-h-none">
+                <!-- Dynamically populated page list items -->
+            </div>
+
+            <!-- Page Reordering Helpers -->
+            <div class="p-3 bg-slate-50 border-t border-slate-200 flex justify-between text-xs text-slate-500">
+                <span>Klik thumbnail untuk edit</span>
+                <span>Gunakan tombol untuk hapus/geser</span>
+            </div>
+        </aside>
+
+        <!-- Center / Editor + Preview Workstation -->
+        <main class="flex-1 bg-slate-100 overflow-y-auto p-4 lg:p-6 flex flex-col gap-6">
+
+            <!-- Dynamic Editor Panel for Active Page -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                <div class="flex flex-wrap items-center justify-between pb-4 border-b border-slate-100 mb-4 gap-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="px-2.5 py-1 bg-amber-100 text-amber-800 font-bold rounded-md text-xs" id="activePageBadge">Halaman 1</span>
+                        <h2 class="font-semibold text-slate-800 text-sm md:text-base">Pengaturan Konten Halaman</h2>
+                    </div>
+
+                    <!-- Layout Presets Selector -->
+                    <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg">
+                        <button onclick="setLayout('split-right')" id="layoutBtn-split-right" title="Teks Kiri, Gambar Kanan" class="p-1.5 rounded text-xs font-medium hover:bg-white text-slate-600 transition">
+                            <i class="fa-solid fa-table-columns"></i>
+                        </button>
+                        <button onclick="setLayout('split-left')" id="layoutBtn-split-left" title="Gambar Kiri, Teks Kanan" class="p-1.5 rounded text-xs font-medium hover:bg-white text-slate-600 transition">
+                            <i class="fa-solid fa-table-columns fa-flip-horizontal"></i>
+                        </button>
+                        <button onclick="setLayout('top-image')" id="layoutBtn-top-image" title="Gambar Atas, Teks Bawah" class="p-1.5 rounded text-xs font-medium hover:bg-white text-slate-600 transition">
+                            <i class="fa-solid fa-file-image"></i>
+                        </button>
+                        <button onclick="setLayout('text-only')" id="layoutBtn-text-only" title="Hanya Teks" class="p-1.5 rounded text-xs font-medium hover:bg-white text-slate-600 transition">
+                            <i class="fa-solid fa-align-left"></i>
+                        </button>
+                        <button onclick="setLayout('cover')" id="layoutBtn-cover" title="Sampul / Hero" class="p-1.5 rounded text-xs font-medium hover:bg-white text-slate-600 transition">
+                            <i class="fa-solid fa-book-bookmark"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form Controls Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs md:text-sm">
+                    <!-- Title Input -->
+                    <div class="space-y-1">
+                        <label class="font-medium text-slate-700 block">Judul Halaman / Sub-judul</label>
+                        <input type="text" id="editorTitle" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Masukkan judul..." oninput="updateActivePage('title', this.value)">
+                    </div>
+
+                    <!-- Theme & Font Styles -->
+                    <div class="space-y-1">
+                        <label class="font-medium text-slate-700 block">Tema Visual & Gaya Font</label>
+                        <select id="editorTheme" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white" onchange="updateActivePage('theme', this.value)">
+                            <option value="theme-classic">Klasik Serif (Putih Clean)</option>
+                            <option value="theme-vintage">Kertas Vintage (Sepia Warm)</option>
+                            <option value="theme-dark">Dark Mode (Elegan Malam)</option>
+                            <option value="theme-pastel">Pastel Cute (Pink Lembut)</option>
+                            <option value="theme-modern">Modern Emerald (Hijau Segar)</option>
+                        </select>
+                    </div>
+
+                    <!-- Text Alignment -->
+                    <div class="space-y-1">
+                        <label class="font-medium text-slate-700 block">Rata Teks</label>
+                        <div class="flex space-x-2">
+                            <button onclick="updateActivePage('textAlign', 'text-left')" class="flex-1 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 text-center"><i class="fa-solid fa-align-left"></i></button>
+                            <button onclick="updateActivePage('textAlign', 'text-center')" class="flex-1 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 text-center"><i class="fa-solid fa-align-center"></i></button>
+                            <button onclick="updateActivePage('textAlign', 'text-right')" class="flex-1 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 text-center"><i class="fa-solid fa-align-right"></i></button>
+                            <button onclick="updateActivePage('textAlign', 'text-justify')" class="flex-1 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 text-center"><i class="fa-solid fa-align-justify"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Image Upload / Source -->
+                    <div class="space-y-1 md:col-span-2">
+                        <label class="font-medium text-slate-700 block">Gambar Halaman</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="editorImageUrl" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Masukkan URL gambar atau unggah..." oninput="updateActivePage('image', this.value)">
+                            <label class="px-3 py-2 bg-slate-800 text-white rounded-lg cursor-pointer hover:bg-slate-700 transition flex items-center gap-1.5 flex-shrink-0">
+                                <i class="fa-solid fa-upload"></i>
+                                <span>Unggah</span>
+                                <input type="file" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Image Fit Option -->
+                    <div class="space-y-1">
+                        <label class="font-medium text-slate-700 block">Penyesuaian Gambar</label>
+                        <select id="editorImageFit" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white" onchange="updateActivePage('imageFit', this.value)">
+                            <option value="object-cover">Cover (Penuh memotong)</option>
+                            <option value="object-contain">Contain (Utuh tidak terpotong)</option>
+                        </select>
+                    </div>
+
+                    <!-- Main Text / Content Paragraph -->
+                    <div class="space-y-1 md:col-span-3">
+                        <label class="font-medium text-slate-700 block">Isi Cerita / Teks Narasi</label>
+                        <textarea id="editorContent" rows="4" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Tuliskan cerita atau informasi pada halaman ini..." oninput="updateActivePage('content', this.value)"></textarea>
+                    </div>
+
+                    <!-- Page Footer / Caption Note -->
+                    <div class="space-y-1 md:col-span-3">
+                        <label class="font-medium text-slate-700 block">Catatan Kaki / Caption Gambar (Opsional)</label>
+                        <input type="text" id="editorCaption" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Keterangan gambar atau kutipan..." oninput="updateActivePage('caption', this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Preview Area -->
+            <div class="flex-1 flex flex-col">
+                <div class="flex items-center justify-between mb-2 px-1">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                        <i class="fa-solid fa-eye text-amber-500"></i> Pratinjau Halaman Aktif
+                    </span>
+                    <span class="text-xs text-slate-400">Desain diperbarui secara langsung</span>
+                </div>
+
+                <!-- Canvas Preview Container -->
+                <div class="flex-1 flex justify-center items-center py-4">
+                    <div id="pageCanvasPreview" class="w-full max-w-2xl aspect-[3/4] md:aspect-[4/3] rounded-2xl shadow-xl overflow-hidden border border-slate-300 transition-all duration-300 flex flex-col relative">
+                        <!-- Rendered content dynamically goes here -->
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Interactive Reader Modal (3D Flipbook Effect) -->
+    <div id="readerModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex-col transition-all duration-300">
+        <!-- Reader Header -->
+        <div class="p-3 sm:p-4 border-b border-slate-800 flex items-center justify-between text-white flex-wrap gap-2">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-book-open text-amber-400 text-xl"></i>
+                <h2 id="readerBookTitle" class="font-bold text-base sm:text-lg truncate max-w-[200px] sm:max-w-xs">Buku Cerita Saya</h2>
+            </div>
+            
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <button onclick="toggleAudioFx()" id="audioToggleBtn" class="text-slate-400 hover:text-amber-400 transition text-xs sm:text-sm flex items-center gap-1.5 bg-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-700">
+                    <i class="fa-solid fa-volume-high"></i>
+                    <span id="audioStatusText" class="hidden sm:inline">Suara: ON</span>
+                </button>
+                <button onclick="toggleReaderModal()" class="w-8 h-8 sm:w-9 sm:h-9 bg-slate-800 hover:bg-slate-700 rounded-full flex items-center justify-center text-slate-300 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Reader Book Viewport Center -->
+        <div class="flex-1 flex items-center justify-center p-2 sm:p-4 md:p-8 overflow-hidden book-viewport">
+            <!-- Book Container (Click & Touch Interactive) -->
+            <div id="flipBookContainer" class="relative w-full max-w-4xl h-[75vh] max-h-[650px] flex rounded-2xl shadow-2xl overflow-hidden border border-slate-700/50 select-none">
+                
+                <!-- Left Page Half (Click for Previous Page) -->
+                <div id="readerLeftPage" onclick="prevSpread()" title="Klik untuk halaman sebelumnya (atau geser kanan)" class="w-full md:w-1/2 h-full relative overflow-hidden border-r-0 md:border-r border-slate-300/20 book-spine-shadow flex flex-col cursor-pointer group transition-all duration-200">
+                    <!-- Visual Hover Arrow Hint -->
+                    <div class="absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white/70 z-20 pointer-events-none">
+                        <i class="fa-solid fa-chevron-left text-xl shadow-sm"></i>
+                    </div>
+                    <!-- Left page content rendered here -->
+                </div>
+
+                <!-- Right Page Half (Click for Next Page) -->
+                <div id="readerRightPage" onclick="nextSpread()" title="Klik untuk halaman selanjutnya (atau geser kiri)" class="hidden md:flex w-1/2 h-full relative overflow-hidden book-spine-right flex-col cursor-pointer group transition-all duration-200">
+                    <!-- Visual Hover Arrow Hint -->
+                    <div class="absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white/70 z-20 pointer-events-none">
+                        <i class="fa-solid fa-chevron-right text-xl shadow-sm"></i>
+                    </div>
+                    <!-- Right page content rendered here -->
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Reader Footer Controls -->
+        <div class="p-3 sm:p-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-white max-w-4xl mx-auto w-full rounded-t-2xl">
+            <!-- Previous Button -->
+            <button onclick="prevSpread()" id="btnPrevPage" class="px-3 sm:px-5 py-2 sm:py-2.5 bg-slate-800 hover:bg-amber-600 disabled:opacity-40 disabled:hover:bg-slate-800 text-white text-xs sm:text-sm font-medium rounded-xl transition flex items-center gap-1.5 sm:gap-2">
+                <i class="fa-solid fa-chevron-left"></i>
+                <span>Sebelumnya</span>
+            </button>
+
+            <!-- Page Counter / Indicator -->
+            <div class="text-center px-2">
+                <span id="readerPageIndicator" class="text-xs sm:text-sm font-semibold tracking-wide text-amber-400">Halaman 1 dari 4</span>
+                <p class="text-[9px] sm:text-[10px] text-slate-400 mt-0.5 hidden sm:block">Klik sisi buku, usap layar HP, atau tekan panah keyboard</p>
+            </div>
+
+            <!-- Next Button -->
+            <button onclick="nextSpread()" id="btnNextPage" class="px-3 sm:px-5 py-2 sm:py-2.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:hover:bg-amber-600 text-white text-xs sm:text-sm font-medium rounded-xl transition flex items-center gap-1.5 sm:gap-2">
+                <span>Selanjutnya</span>
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Template Preset Selector Modal -->
+    <div id="templateModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="font-bold text-slate-900 text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-500"></i> Pilih Templat Buku
+                </h3>
+                <button onclick="closeTemplateModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-500 my-3">Memilih templat akan menggantikan isi buku Anda saat ini dengan contoh yang siap dipakai.</p>
+
+            <div class="space-y-3 my-4">
+                <!-- Preset 1 -->
+                <button onclick="loadTemplatePreset('fairytale')" class="w-full p-3.5 border border-slate-200 hover:border-amber-500 hover:bg-amber-50/50 rounded-xl transition text-left flex items-center space-x-3 group">
+                    <div class="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-lg group-hover:scale-110 transition">
+                        <i class="fa-solid fa-dragon"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-sm">Dongeng & Cerita Anak</h4>
+                        <p class="text-xs text-slate-500">Ilustrasi petualangan dengan tata letak menarik dan teks narasi.</p>
+                    </div>
+                </button>
+
+                <!-- Preset 2 -->
+                <button onclick="loadTemplatePreset('photoalbum')" class="w-full p-3.5 border border-slate-200 hover:border-amber-500 hover:bg-amber-50/50 rounded-xl transition text-left flex items-center space-x-3 group">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg group-hover:scale-110 transition">
+                        <i class="fa-solid fa-camera-retro"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-sm">Album Foto & Jurnal Wisata</h4>
+                        <p class="text-xs text-slate-500">Fokus pada galeri gambar beresolusi tinggi dan keterangan foto.</p>
+                    </div>
+                </button>
+
+                <!-- Preset 3 -->
+                <button onclick="loadTemplatePreset('educational')" class="w-full p-3.5 border border-slate-200 hover:border-amber-500 hover:bg-amber-50/50 rounded-xl transition text-left flex items-center space-x-3 group">
+                    <div class="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-lg group-hover:scale-110 transition">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-sm">Buku Edukasi & Modern Dark</h4>
+                        <p class="text-xs text-slate-500">Tampilan bersih elegan cocok untuk panduan, modul, atau presentasi.</p>
+                    </div>
+                </button>
+            </div>
+
+            <div class="flex justify-end pt-2">
+                <button onclick="closeTemplateModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Overlay -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 translate-y-20 opacity-0 transition-all duration-300 z-50 text-sm border border-slate-700 pointer-events-none">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        <span id="toastMessage">Pesan pemberitahuan</span>
+    </div>
+
+    <script>
+        // Sample Image URLs
+        const SAMPLE_IMAGES = {
+            forest: 'https://images.unsplash.com/photo-1511497584788-876761c144ee?auto=format&fit=crop&w=800&q=80',
+            stars: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=800&q=80',
+            river: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=800&q=80',
+            castle: 'https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=800&q=80'
+        };
+
+        // Default Pages Data
+        const DEFAULT_PAGES = [
+            {
+                id: 'p_1',
+                title: 'Petualangan di Hutan Ajaib',
+                content: 'Selamat datang di buku interaktif Anda!\n\nTuliskan cerita indah Anda di sini, unggah gambar favorit Anda, dan sesuaikan tata letaknya.',
+                image: SAMPLE_IMAGES.forest,
+                layout: 'cover',
+                theme: 'theme-classic',
+                textAlign: 'text-center',
+                caption: 'Sampul Depan Buku',
+                imageFit: 'object-cover'
+            },
+            {
+                id: 'p_2',
+                title: 'Bab 1: Awal Perjalanan',
+                content: 'Di sebuah lembah yang jauh dan sunyi, sinar matahari pagi mulai menembus pepohonan rimbun. Keheningan pecah oleh riak air sungai.',
+                image: SAMPLE_IMAGES.river,
+                layout: 'split-right',
+                theme: 'theme-classic',
+                textAlign: 'text-left',
+                caption: 'Sungai jernih di tengah hutan',
+                imageFit: 'object-cover'
+            },
+            {
+                id: 'p_3',
+                title: 'Bab 2: Malam Berbintang',
+                content: 'Saat malam tiba, langit terhampar luas dipenuhi jutaan bintang berkilauan. Setiap bintang menyimpan petunjuk rahasia.',
+                image: SAMPLE_IMAGES.stars,
+                layout: 'split-left',
+                theme: 'theme-dark',
+                textAlign: 'text-left',
+                caption: 'Langit malam yang syahdu',
+                imageFit: 'object-cover'
+            }
+        ];
+
+        // Global Book State
+        let bookState = {
+            title: "Petualangan di Hutan Ajaib",
+            pages: [],
+            activePageIndex: 0,
+            readerSpreadIndex: 0, // Current Page index in Reader Mode
+            soundEnabled: true
+        };
+
+        // Page Flip Sound Synthesizer
+        function playFlipSound() {
+            if (!bookState.soundEnabled) return;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const bufferSize = ctx.sampleRate * 0.12;
+                const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                const noise = ctx.createBufferSource();
+                noise.buffer = buffer;
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 800;
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                noise.start();
+            } catch(e) {}
+        }
+
+        // Touch Navigation Swipe Tracking
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+
+        window.onload = function() {
+            bookState.pages = [...DEFAULT_PAGES];
+            document.getElementById('globalBookTitle').value = bookState.title;
+            renderThumbnails();
+            loadActivePageEditor();
+            setupKeyboardNavigation();
+            setupTouchNavigation();
+            
+            window.addEventListener('resize', () => {
+                const modal = document.getElementById('readerModal');
+                if (!modal.classList.contains('hidden')) {
+                    renderReaderSpread();
+                }
+            });
+        };
+
+        // Touch Gestures (Swipe Left / Swipe Right) for Reader
+        function setupTouchNavigation() {
+            const container = document.getElementById('flipBookContainer');
+            if (!container) return;
+
+            container.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+                touchStartY = e.changedTouches[0].screenY;
+            }, { passive: true });
+
+            container.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                touchEndY = e.changedTouches[0].screenY;
+                handleSwipeGesture();
+            }, { passive: true });
+        }
+
+        function handleSwipeGesture() {
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
+            const swipeThreshold = 40; // Minimum px distance for swipe
+
+            // Only trigger horizontal swipe if movement is mostly horizontal
+            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > swipeThreshold) {
+                if (deltaX < 0) {
+                    nextSpread(); // Swiped Left -> Next Page
+                } else {
+                    prevSpread(); // Swiped Right -> Previous Page
+                }
+            }
+        }
+
+        function toggleAudioFx() {
+            bookState.soundEnabled = !bookState.soundEnabled;
+            const statusText = document.getElementById('audioStatusText');
+            const icon = document.querySelector('#audioToggleBtn i');
+            if (bookState.soundEnabled) {
+                statusText.innerText = 'Suara: ON';
+                icon.className = 'fa-solid fa-volume-high';
+                showToast('Efek suara diaktifkan');
+            } else {
+                statusText.innerText = 'Suara: OFF';
+                icon.className = 'fa-solid fa-volume-xmark';
+                showToast('Efek suara dimatikan');
+            }
+        }
+
+        // Title update handler
+        function updateBookTitle(val) {
+            bookState.title = val || 'Buku Cerita Saya';
+            document.getElementById('readerBookTitle').innerText = bookState.title;
+        }
+
+        function renderThumbnails() {
+            const container = document.getElementById('pagesThumbnailsContainer');
+            container.innerHTML = '';
+            document.getElementById('pageCount').innerText = bookState.pages.length;
+
+            bookState.pages.forEach((page, idx) => {
+                const isActive = idx === bookState.activePageIndex;
+                const thumb = document.createElement('div');
+                thumb.className = `p-3 rounded-xl border transition cursor-pointer relative flex items-center gap-3 ${
+                    isActive 
+                        ? 'bg-amber-50 border-amber-500 ring-2 ring-amber-500/20 shadow-sm' 
+                        : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                }`;
+
+                thumb.onclick = () => selectActivePage(idx);
+
+                thumb.innerHTML = `
+                    <div class="w-12 h-16 bg-slate-200 rounded overflow-hidden flex-shrink-0 border border-slate-300 relative">
+                        ${page.image 
+                            ? `<img src="${page.image}" class="w-full h-full object-cover" onerror="this.style.display='none'">` 
+                            : `<div class="w-full h-full flex items-center justify-center text-slate-400 text-xs"><i class="fa-solid fa-file-lines"></i></div>`
+                        }
+                        <span class="absolute bottom-0 left-0 right-0 bg-slate-900/70 text-white text-[9px] text-center py-0.5">${idx + 1}</span>
+                    </div>
+
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-bold text-xs text-slate-800 truncate">${page.title || 'Halaman Tanpa Judul'}</h4>
+                        <p class="text-[11px] text-slate-500 capitalize truncate mt-0.5">${getLayoutLabel(page.layout)}</p>
+                    </div>
+
+                    <div class="flex flex-col gap-1 text-slate-400 opacity-80 hover:opacity-100">
+                        <button onclick="event.stopPropagation(); movePageUp(${idx})" class="hover:text-amber-600 p-0.5" title="Geser ke Atas" ${idx === 0 ? 'disabled class="opacity-30"' : ''}>
+                            <i class="fa-solid fa-chevron-up text-xs"></i>
+                        </button>
+                        <button onclick="event.stopPropagation(); deletePage(${idx})" class="hover:text-rose-600 p-0.5" title="Hapus Halaman" ${bookState.pages.length <= 1 ? 'disabled class="opacity-30"' : ''}>
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                        <button onclick="event.stopPropagation(); movePageDown(${idx})" class="hover:text-amber-600 p-0.5" title="Geser ke Bawah" ${idx === bookState.pages.length - 1 ? 'disabled class="opacity-30"' : ''}>
+                            <i class="fa-solid fa-chevron-down text-xs"></i>
+                        </button>
+                    </div>
+                `;
+
+                container.appendChild(thumb);
+            });
+        }
+
+        function getLayoutLabel(layout) {
+            switch(layout) {
+                case 'split-right': return 'Teks Kiri, Gambar Kanan';
+                case 'split-left': return 'Gambar Kiri, Teks Kanan';
+                case 'top-image': return 'Gambar Atas, Teks Bawah';
+                case 'text-only': return 'Hanya Teks';
+                case 'cover': return 'Sampul / Hero';
+                default: return layout;
+            }
+        }
+
+        function selectActivePage(index) {
+            bookState.activePageIndex = index;
+            renderThumbnails();
+            loadActivePageEditor();
+        }
+
+        function addNewPage() {
+            const newPg = {
+                id: 'p_' + Date.now(),
+                title: `Halaman ${bookState.pages.length + 1}`,
+                content: 'Tulis naskah atau cerita Anda di sini...',
+                image: SAMPLE_IMAGES.forest,
+                layout: 'split-right',
+                theme: 'theme-classic',
+                textAlign: 'text-left',
+                caption: '',
+                imageFit: 'object-cover'
+            };
+            bookState.pages.push(newPg);
+            bookState.activePageIndex = bookState.pages.length - 1;
+            renderThumbnails();
+            loadActivePageEditor();
+            showToast('Halaman baru berhasil ditambahkan');
+        }
+
+        function deletePage(index) {
+            if (bookState.pages.length <= 1) {
+                showToast('Buku harus memiliki setidaknya 1 halaman!', 'warning');
+                return;
+            }
+            bookState.pages.splice(index, 1);
+            if (bookState.activePageIndex >= bookState.pages.length) {
+                bookState.activePageIndex = bookState.pages.length - 1;
+            }
+            renderThumbnails();
+            loadActivePageEditor();
+            showToast('Halaman berhasil dihapus');
+        }
+
+        function movePageUp(index) {
+            if (index <= 0) return;
+            const temp = bookState.pages[index];
+            bookState.pages[index] = bookState.pages[index - 1];
+            bookState.pages[index - 1] = temp;
+            bookState.activePageIndex = index - 1;
+            renderThumbnails();
+            loadActivePageEditor();
+        }
+
+        function movePageDown(index) {
+            if (index >= bookState.pages.length - 1) return;
+            const temp = bookState.pages[index];
+            bookState.pages[index] = bookState.pages[index + 1];
+            bookState.pages[index + 1] = temp;
+            bookState.activePageIndex = index + 1;
+            renderThumbnails();
+            loadActivePageEditor();
+        }
+
+        function loadActivePageEditor() {
+            const page = bookState.pages[bookState.activePageIndex];
+            if (!page) return;
+
+            document.getElementById('activePageBadge').innerText = `Halaman ${bookState.activePageIndex + 1} dari ${bookState.pages.length}`;
+            document.getElementById('editorTitle').value = page.title || '';
+            document.getElementById('editorContent').value = page.content || '';
+            document.getElementById('editorImageUrl').value = page.image || '';
+            document.getElementById('editorCaption').value = page.caption || '';
+            document.getElementById('editorTheme').value = page.theme || 'theme-classic';
+            document.getElementById('editorImageFit').value = page.imageFit || 'object-cover';
+
+            // Layout active highlight buttons
+            const layouts = ['split-right', 'split-left', 'top-image', 'text-only', 'cover'];
+            layouts.forEach(l => {
+                const btn = document.getElementById(`layoutBtn-${l}`);
+                if (btn) {
+                    if (l === page.layout) {
+                        btn.className = 'p-1.5 rounded text-xs font-medium bg-amber-500 text-white shadow-sm';
+                    } else {
+                        btn.className = 'p-1.5 rounded text-xs font-medium hover:bg-white text-slate-600 transition';
+                    }
+                }
+            });
+
+            renderLiveCanvasPreview();
+        }
+
+        function updateActivePage(key, value) {
+            const page = bookState.pages[bookState.activePageIndex];
+            if (!page) return;
+            page[key] = value;
+            renderLiveCanvasPreview();
+            renderThumbnails();
+        }
+
+        function setLayout(layoutType) {
+            updateActivePage('layout', layoutType);
+            loadActivePageEditor();
+        }
+
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const base64Img = event.target.result;
+                document.getElementById('editorImageUrl').value = base64Img;
+                updateActivePage('image', base64Img);
+                showToast('Gambar berhasil diunggah!');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function generatePageInnerHTML(page, isSpreadView = false) {
+            if (!page) {
+                return `<div class="w-full h-full bg-slate-100 flex items-center justify-center text-slate-400 italic text-sm">Akhir Buku</div>`;
+            }
+
+            const themeClass = page.theme || 'theme-classic';
+            const alignClass = page.textAlign || 'text-left';
+            const imageFitClass = page.imageFit || 'object-cover';
+            const paragraphs = (page.content || '').split('\n').filter(p => p.trim() !== '');
+
+            // Render Based on Selected Layout
+            switch (page.layout) {
+                case 'cover':
+                    return `
+                        <div class="w-full h-full ${themeClass} flex flex-col justify-between p-6 md:p-10 relative overflow-hidden">
+                            ${page.image ? `
+                                <div class="absolute inset-0 opacity-25">
+                                    <img src="${page.image}" class="w-full h-full ${imageFitClass}">
+                                </div>
+                            ` : ''}
+                            <div class="relative z-10 my-auto ${alignClass}">
+                                <div class="w-16 h-1 bg-amber-500 ${alignClass === 'text-center' ? 'mx-auto' : ''} mb-6 rounded-full"></div>
+                                <h1 class="text-2xl md:text-4xl font-extrabold tracking-tight mb-4 leading-tight">${escapeHTML(page.title)}</h1>
+                                <div class="text-sm md:text-base opacity-90 space-y-3 font-serif">
+                                    ${paragraphs.map(p => `<p>${escapeHTML(p)}</p>`).join('')}
+                                </div>
+                            </div>
+                            ${page.caption ? `<div class="relative z-10 text-xs opacity-75 text-center pt-4 border-t border-current/20">${escapeHTML(page.caption)}</div>` : ''}
+                        </div>
+                    `;
+
+                case 'split-left':
+                    return `
+                        <div class="w-full h-full ${themeClass} flex flex-col md:flex-row overflow-hidden">
+                            <div class="w-full md:w-1/2 h-1/2 md:h-full bg-black/5 relative overflow-hidden">
+                                ${page.image ? `<img src="${page.image}" class="w-full h-full ${imageFitClass}">` : `<div class="w-full h-full flex items-center justify-center text-slate-400"><i class="fa-solid fa-image text-3xl"></i></div>`}
+                                ${page.caption ? `<div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[11px] p-2 text-center backdrop-blur-sm">${escapeHTML(page.caption)}</div>` : ''}
+                            </div>
+                            <div class="w-full md:w-1/2 h-1/2 md:h-full p-6 md:p-8 flex flex-col justify-between overflow-y-auto">
+                                <div>
+                                    <h2 class="text-xl font-bold mb-4 border-b border-current/15 pb-2">${escapeHTML(page.title)}</h2>
+                                    <div class="text-xs md:text-sm space-y-3 leading-relaxed ${alignClass}">
+                                        ${paragraphs.map(p => `<p>${escapeHTML(p)}</p>`).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                case 'top-image':
+                    return `
+                        <div class="w-full h-full ${themeClass} flex flex-col overflow-hidden">
+                            <div class="w-full h-2/5 bg-black/5 relative overflow-hidden flex-shrink-0">
+                                ${page.image ? `<img src="${page.image}" class="w-full h-full ${imageFitClass}">` : `<div class="w-full h-full flex items-center justify-center text-slate-400"><i class="fa-solid fa-image text-3xl"></i></div>`}
+                                ${page.caption ? `<div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[11px] p-1.5 text-center backdrop-blur-sm">${escapeHTML(page.caption)}</div>` : ''}
+                            </div>
+                            <div class="w-full h-3/5 p-6 md:p-8 overflow-y-auto flex flex-col">
+                                <h2 class="text-xl font-bold mb-3 border-b border-current/15 pb-2">${escapeHTML(page.title)}</h2>
+                                <div class="text-xs md:text-sm space-y-3 leading-relaxed ${alignClass}">
+                                    ${paragraphs.map(p => `<p>${escapeHTML(p)}</p>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                case 'text-only':
+                    return `
+                        <div class="w-full h-full ${themeClass} p-8 md:p-12 flex flex-col justify-between overflow-y-auto">
+                            <div>
+                                <h2 class="text-2xl font-bold mb-6 border-b border-current/20 pb-3">${escapeHTML(page.title)}</h2>
+                                <div class="text-sm md:text-base space-y-4 leading-relaxed ${alignClass}">
+                                    ${paragraphs.map(p => `<p>${escapeHTML(p)}</p>`).join('')}
+                                </div>
+                            </div>
+                            ${page.caption ? `<div class="text-xs italic opacity-70 border-t border-current/20 pt-3 text-center">${escapeHTML(page.caption)}</div>` : ''}
+                        </div>
+                    `;
+
+                case 'split-right':
+                default:
+                    return `
+                        <div class="w-full h-full ${themeClass} flex flex-col md:flex-row overflow-hidden">
+                            <div class="w-full md:w-1/2 h-1/2 md:h-full p-6 md:p-8 flex flex-col justify-between overflow-y-auto order-2 md:order-1">
+                                <div>
+                                    <h2 class="text-xl font-bold mb-4 border-b border-current/15 pb-2">${escapeHTML(page.title)}</h2>
+                                    <div class="text-xs md:text-sm space-y-3 leading-relaxed ${alignClass}">
+                                        ${paragraphs.map(p => `<p>${escapeHTML(p)}</p>`).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="w-full md:w-1/2 h-1/2 md:h-full bg-black/5 relative overflow-hidden order-1 md:order-2">
+                                ${page.image ? `<img src="${page.image}" class="w-full h-full ${imageFitClass}">` : `<div class="w-full h-full flex items-center justify-center text-slate-400"><i class="fa-solid fa-image text-3xl"></i></div>`}
+                                ${page.caption ? `<div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[11px] p-2 text-center backdrop-blur-sm">${escapeHTML(page.caption)}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+            }
+        }
+
+        function renderLiveCanvasPreview() {
+            const container = document.getElementById('pageCanvasPreview');
+            const activePage = bookState.pages[bookState.activePageIndex];
+            if (!activePage) return;
+            container.innerHTML = generatePageInnerHTML(activePage);
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
+        function toggleReaderModal() {
+            const modal = document.getElementById('readerModal');
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                bookState.readerSpreadIndex = 0;
+                renderReaderSpread();
+            } else {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        function isMobileView() {
+            return window.innerWidth < 768; // Mobile screen threshold
+        }
+
+        function renderReaderSpread() {
+            const totalPages = bookState.pages.length;
+            const mobile = isMobileView();
+
+            const leftContainer = document.getElementById('readerLeftPage');
+            const rightContainer = document.getElementById('readerRightPage');
+
+            if (mobile) {
+                // Mobile View: Single Page per view
+                const currentIdx = bookState.readerSpreadIndex;
+                const activePage = bookState.pages[currentIdx];
+
+                leftContainer.innerHTML = generatePageInnerHTML(activePage, true);
+                rightContainer.classList.add('hidden');
+                rightContainer.classList.remove('flex');
+
+                if (activePage) {
+                    const pNum = document.createElement('div');
+                    pNum.className = 'absolute bottom-2 right-4 text-[10px] font-bold opacity-40 select-none bg-black/10 px-2 py-0.5 rounded';
+                    pNum.innerText = `Halaman ${currentIdx + 1}`;
+                    leftContainer.appendChild(pNum);
+                }
+
+                // Update Indicator for Mobile
+                document.getElementById('readerPageIndicator').innerText = `Halaman ${currentIdx + 1} dari ${totalPages}`;
+                document.getElementById('btnPrevPage').disabled = currentIdx === 0;
+                document.getElementById('btnNextPage').disabled = currentIdx >= totalPages - 1;
+            } else {
+                // Desktop / Tablet View: Two pages side-by-side
+                rightContainer.classList.remove('hidden');
+                rightContainer.classList.add('flex');
+
+                const spreadIdx = Math.floor(bookState.readerSpreadIndex / 2);
+                const leftIdx = spreadIdx * 2;
+                const rightIdx = leftIdx + 1;
+
+                const leftPage = bookState.pages[leftIdx];
+                const rightPage = bookState.pages[rightIdx];
+
+                leftContainer.innerHTML = generatePageInnerHTML(leftPage, true);
+                rightContainer.innerHTML = generatePageInnerHTML(rightPage, true);
+
+                if (leftPage) {
+                    const pNumL = document.createElement('div');
+                    pNumL.className = 'absolute bottom-2 left-4 text-[10px] font-bold opacity-40 select-none';
+                    pNumL.innerText = leftIdx + 1;
+                    leftContainer.appendChild(pNumL);
+                }
+
+                if (rightPage) {
+                    const pNumR = document.createElement('div');
+                    pNumR.className = 'absolute bottom-2 right-4 text-[10px] font-bold opacity-40 select-none';
+                    pNumR.innerText = rightIdx + 1;
+                    rightContainer.appendChild(pNumR);
+                }
+
+                const totalSpreads = Math.ceil(totalPages / 2);
+                document.getElementById('readerPageIndicator').innerText = `Halaman ${leftIdx + 1} ${rightPage ? '- ' + (rightIdx + 1) : ''} dari ${totalPages}`;
+                document.getElementById('btnPrevPage').disabled = leftIdx === 0;
+                document.getElementById('btnNextPage').disabled = rightIdx >= totalPages - 1;
+            }
+        }
+
+        function prevSpread() {
+            const mobile = isMobileView();
+            if (mobile) {
+                if (bookState.readerSpreadIndex > 0) {
+                    playFlipSound();
+                    bookState.readerSpreadIndex--;
+                    renderReaderSpread();
+                }
+            } else {
+                const currentSpread = Math.floor(bookState.readerSpreadIndex / 2);
+                if (currentSpread > 0) {
+                    playFlipSound();
+                    bookState.readerSpreadIndex = (currentSpread - 1) * 2;
+                    renderReaderSpread();
+                }
+            }
+        }
+
+        function nextSpread() {
+            const totalPages = bookState.pages.length;
+            const mobile = isMobileView();
+            if (mobile) {
+                if (bookState.readerSpreadIndex < totalPages - 1) {
+                    playFlipSound();
+                    bookState.readerSpreadIndex++;
+                    renderReaderSpread();
+                }
+            } else {
+                const currentSpread = Math.floor(bookState.readerSpreadIndex / 2);
+                if ((currentSpread + 1) * 2 < totalPages) {
+                    playFlipSound();
+                    bookState.readerSpreadIndex = (currentSpread + 1) * 2;
+                    renderReaderSpread();
+                }
+            }
+        }
+
+        function setupKeyboardNavigation() {
+            window.addEventListener('keydown', (e) => {
+                const modal = document.getElementById('readerModal');
+                if (!modal.classList.contains('hidden')) {
+                    if (e.key === 'ArrowRight' || e.key === ' ') {
+                        nextSpread();
+                    } else if (e.key === 'ArrowLeft') {
+                        prevSpread();
+                    } else if (e.key === 'Escape') {
+                        toggleReaderModal();
+                    }
+                }
+            });
+        }
+
+        function openTemplateModal() {
+            document.getElementById('templateModal').classList.remove('hidden');
+        }
+
+        function closeTemplateModal() {
+            document.getElementById('templateModal').classList.add('hidden');
+        }
+
+        function loadTemplatePreset(presetType) {
+            closeTemplateModal();
+            if (presetType === 'fairytale') {
+                bookState.title = "Petualangan Kelinci & Bulan Emas";
+                bookState.pages = [
+                    {
+                        id: 'ft1',
+                        title: 'Kelinci & Bulan Emas',
+                        content: 'Dongeng Sebelum Tidur\n\nSebuah cerita tentang keberanian, persahabatan, dan keajaiban yang tersembunyi di malam hari.',
+                        image: SAMPLE_IMAGES.stars,
+                        layout: 'cover',
+                        theme: 'theme-dark',
+                        textAlign: 'text-center',
+                        caption: 'Ditulis untuk Pembaca Cilik',
+                        imageFit: 'object-cover'
+                    },
+                    {
+                        id: 'ft2',
+                        title: 'Mimpi di Padang Bintang',
+                        content: 'Miko si kelinci kecil melihat seberkas cahaya emas jatuh di balik bukit. Dengan hati penasaran, ia mulai melangkahkan kakinya menembus hutan rimba.',
+                        image: SAMPLE_IMAGES.forest,
+                        layout: 'split-right',
+                        theme: 'theme-vintage',
+                        textAlign: 'text-left',
+                        caption: 'Miko memulai petualangan pertamanya.',
+                        imageFit: 'object-cover'
+                    }
+                ];
+            } else if (presetType === 'photoalbum') {
+                bookState.title = "Jurnal Ekspedisi Alam 2026";
+                bookState.pages = [
+                    {
+                        id: 'pa1',
+                        title: 'Jurnal Ekspedisi Alam',
+                        content: 'Catatan Perjalanan & Dokumentasi Fotografi Lanskap Indonesia.',
+                        image: SAMPLE_IMAGES.river,
+                        layout: 'cover',
+                        theme: 'theme-modern',
+                        textAlign: 'text-center',
+                        caption: 'Koleksi Foto Lanskap',
+                        imageFit: 'object-cover'
+                    },
+                    {
+                        id: 'pa2',
+                        title: 'Lembah Hijau & Sungai Kuno',
+                        content: 'Diambil pada pukul 06.00 pagi saat embun masih membasahi pepohonan. Keheningan alam begitu terasa menentramkan.',
+                        image: SAMPLE_IMAGES.river,
+                        layout: 'top-image',
+                        theme: 'theme-classic',
+                        textAlign: 'text-center',
+                        caption: 'ISO 100, f/8.0, 1/250s',
+                        imageFit: 'object-cover'
+                    }
+                ];
+            } else if (presetType === 'educational') {
+                bookState.title = "Panduan Interaktif Desain Web";
+                bookState.pages = [
+                    {
+                        id: 'ed1',
+                        title: 'Panduan Desain Web Modern',
+                        content: 'Modul Pembelajaran Mandiri untuk Pemula hingga Profesional.',
+                        image: SAMPLE_IMAGES.castle,
+                        layout: 'cover',
+                        theme: 'theme-dark',
+                        textAlign: 'text-center',
+                        caption: 'Edisi Revisi Terbaru',
+                        imageFit: 'object-cover'
+                    },
+                    {
+                        id: 'ed2',
+                        title: 'Prinsip Layout & Tipografi',
+                        content: 'Pentingnya tata letak yang bersih dan kontras warna yang baik untuk memberikan kenyamanan membaca yang maksimal bagi pengguna.',
+                        image: SAMPLE_IMAGES.castle,
+                        layout: 'text-only',
+                        theme: 'theme-dark',
+                        textAlign: 'text-left',
+                        caption: 'Bab 1: Dasar Tipografi',
+                        imageFit: 'object-cover'
+                    }
+                ];
+            }
+
+            document.getElementById('globalBookTitle').value = bookState.title;
+            bookState.activePageIndex = 0;
+            renderThumbnails();
+            loadActivePageEditor();
+            showToast('Templat buku berhasil dimuat!');
+        }
+
+        function exportStandaloneHTML() {
+            const pagesJSON = JSON.stringify(bookState.pages);
+            const bookTitle = escapeHTML(bookState.title);
+
+            const htmlTemplate = `<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${bookTitle}</title>
+    <script src="https://cdn.tailwindcss.com"><\/script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,600;1,400&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&display=swap" rel="stylesheet">
+    <style>
+        .theme-classic { background-color: #ffffff; color: #1a202c; font-family: 'Lora', serif; }
+        .theme-vintage { background-color: #f4ecd8; color: #3d3122; font-family: 'Merriweather', serif; }
+        .theme-dark { background-color: #1f2937; color: #f3f4f6; font-family: 'Inter', sans-serif; }
+        .theme-pastel { background-color: #fce4ec; color: #4a148c; font-family: 'Inter', sans-serif; }
+        .theme-modern { background-color: #f0fdf4; color: #166534; font-family: 'Inter', sans-serif; }
+        .book-spine-shadow { background: linear-gradient(to right, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.02) 8%, rgba(0,0,0,0) 100%); }
+        .book-spine-right { background: linear-gradient(to left, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.02) 8%, rgba(0,0,0,0) 100%); }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 md:p-8 antialiased select-none">
+    
+    <!-- Top Bar -->
+    <header class="w-full max-w-4xl flex items-center justify-between py-2 sm:py-3 border-b border-slate-800">
+        <div class="flex items-center space-x-2 sm:space-x-3">
+            <i class="fa-solid fa-book-open text-amber-500 text-lg sm:text-xl"></i>
+            <h1 class="font-bold text-sm sm:text-xl text-white tracking-wide truncate max-w-[200px] sm:max-w-none">${bookTitle}</h1>
+        </div>
+        <button onclick="toggleAudio()" id="audioBtn" class="px-2.5 py-1 sm:px-3 sm:py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg text-slate-300 transition flex items-center gap-1.5 border border-slate-700">
+            <i class="fa-solid fa-volume-high"></i>
+            <span id="audioTxt" class="hidden sm:inline">Suara: ON</span>
+        </button>
+    </header>
+
+    <!-- Main Book Viewport -->
+    <main class="w-full max-w-4xl h-[75vh] max-h-[650px] my-auto flex rounded-2xl shadow-2xl overflow-hidden border border-slate-800">
+        <div id="mainBookContainer" class="w-full h-full flex relative select-none">
+            <!-- Left Page / Mobile Page -->
+            <div id="leftPg" onclick="prev()" title="Klik untuk Halaman Sebelumnya (atau usap ke kanan)" class="w-full md:w-1/2 h-full relative overflow-hidden border-r-0 md:border-r border-slate-800 book-spine-shadow flex flex-col cursor-pointer group transition-all duration-200">
+                <div class="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white/70 z-20 pointer-events-none">
+                    <i class="fa-solid fa-chevron-left text-lg"></i>
+                </div>
+            </div>
+
+            <!-- Right Page (Desktop only) -->
+            <div id="rightPg" onclick="next()" title="Klik untuk Halaman Selanjutnya (atau usap ke kiri)" class="hidden md:flex w-1/2 h-full relative overflow-hidden book-spine-right flex-col cursor-pointer group transition-all duration-200">
+                <div class="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white/70 z-20 pointer-events-none">
+                    <i class="fa-solid fa-chevron-right text-lg"></i>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Controls Footer -->
+    <footer class="w-full max-w-4xl flex items-center justify-between pt-2 sm:pt-3 border-t border-slate-800">
+        <button onclick="prev()" id="btnPrev" class="px-3 sm:px-5 py-2 sm:py-2.5 bg-slate-800 hover:bg-amber-600 disabled:opacity-30 disabled:hover:bg-slate-800 text-white font-semibold rounded-xl transition flex items-center gap-1.5 text-xs sm:text-sm">
+            <i class="fa-solid fa-chevron-left"></i> <span>Sebelumnya</span>
+        </button>
+        <span id="pageIndicator" class="text-xs sm:text-sm font-semibold text-amber-400">Halaman 1</span>
+        <button onclick="next()" id="btnNext" class="px-3 sm:px-5 py-2 sm:py-2.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-30 disabled:hover:bg-amber-600 text-white font-semibold rounded-xl transition flex items-center gap-1.5 text-xs sm:text-sm">
+            <span>Selanjutnya</span> <i class="fa-solid fa-chevron-right"></i>
+        </button>
+    </footer>
+
+    <script>
+        const pages = ${pagesJSON};
+        let currentIndex = 0; // Page index
+        let soundOn = true;
+
+        let touchStartX = 0, touchStartY = 0, touchEndX = 0, touchEndY = 0;
+
+        function playSound() {
+            if (!soundOn) return;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const bufferSize = ctx.sampleRate * 0.12;
+                const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                const noise = ctx.createBufferSource();
+                noise.buffer = buffer;
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 800;
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                noise.start();
+            } catch(e){}
+        }
+
+        function toggleAudio() {
+            soundOn = !soundOn;
+            document.getElementById('audioTxt').innerText = soundOn ? 'Suara: ON' : 'Suara: OFF';
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, tag => ({'&': '&amp;','<': '&lt;','>': '&gt;',"'": '&#39;','"': '&quot;'}[tag] || tag));
+        }
+
+        function renderPageHTML(page) {
+            if (!page) return '<div class="w-full h-full bg-slate-900 flex items-center justify-center text-slate-600 italic text-sm">Akhir Buku</div>';
+            const themeClass = page.theme || 'theme-classic';
+            const alignClass = page.textAlign || 'text-left';
+            const imageFitClass = page.imageFit || 'object-cover';
+            const paragraphs = (page.content || '').split('\\n').filter(p => p.trim() !== '');
+
+            if (page.layout === 'cover') {
+                return \`<div class="w-full h-full \${themeClass} flex flex-col justify-between p-6 sm:p-8 relative overflow-hidden">
+                    \${page.image ? \`<div class="absolute inset-0 opacity-25"><img src="\${page.image}" class="w-full h-full \${imageFitClass}"></div>\` : ''}
+                    <div class="relative z-10 my-auto \${alignClass}">
+                        <div class="w-12 h-1 bg-amber-500 \${alignClass === 'text-center' ? 'mx-auto' : ''} mb-4 rounded-full"></div>
+                        <h1 class="text-xl sm:text-3xl font-extrabold mb-3 leading-tight">\${escapeHTML(page.title)}</h1>
+                        <div class="text-xs sm:text-sm space-y-2 opacity-90">\${paragraphs.map(p => \`<p>\${escapeHTML(p)}</p>\`).join('')}</div>
+                    </div>
+                    \${page.caption ? \`<div class="relative z-10 text-[11px] opacity-75 text-center pt-3 border-t border-current/20">\${escapeHTML(page.caption)}</div>\` : ''}
+                </div>\`;
+            } else if (page.layout === 'split-left') {
+                return \`<div class="w-full h-full \${themeClass} flex flex-col md:flex-row overflow-hidden">
+                    <div class="w-full md:w-1/2 h-1/2 md:h-full bg-black/5 relative overflow-hidden">
+                        \${page.image ? \`<img src="\${page.image}" class="w-full h-full \${imageFitClass}">\` : ''}
+                    </div>
+                    <div class="w-full md:w-1/2 h-1/2 md:h-full p-4 sm:p-6 flex flex-col justify-between overflow-y-auto">
+                        <div>
+                            <h2 class="text-base sm:text-lg font-bold mb-2 border-b border-current/15 pb-2">\${escapeHTML(page.title)}</h2>
+                            <div class="text-xs space-y-2 leading-relaxed \${alignClass}">\${paragraphs.map(p => \`<p>\${escapeHTML(p)}</p>\`).join('')}</div>
+                        </div>
+                    </div>
+                </div>\`;
+            } else if (page.layout === 'top-image') {
+                return \`<div class="w-full h-full \${themeClass} flex flex-col overflow-hidden">
+                    <div class="w-full h-2/5 bg-black/5 relative overflow-hidden">
+                        \${page.image ? \`<img src="\${page.image}" class="w-full h-full \${imageFitClass}">\` : ''}
+                    </div>
+                    <div class="w-full h-3/5 p-4 sm:p-6 overflow-y-auto">
+                        <h2 class="text-base sm:text-lg font-bold mb-2 border-b border-current/15 pb-2">\${escapeHTML(page.title)}</h2>
+                        <div class="text-xs space-y-2 leading-relaxed \${alignClass}">\${paragraphs.map(p => \`<p>\${escapeHTML(p)}</p>\`).join('')}</div>
+                    </div>
+                </div>\`;
+            } else if (page.layout === 'text-only') {
+                return \`<div class="w-full h-full \${themeClass} p-6 sm:p-8 flex flex-col justify-between overflow-y-auto">
+                    <div>
+                        <h2 class="text-lg sm:text-xl font-bold mb-4 border-b border-current/20 pb-2">\${escapeHTML(page.title)}</h2>
+                        <div class="text-xs sm:text-sm space-y-3 leading-relaxed \${alignClass}">\${paragraphs.map(p => \`<p>\${escapeHTML(p)}</p>\`).join('')}</div>
+                    </div>
+                    \${page.caption ? \`<div class="text-[11px] italic opacity-70 border-t border-current/20 pt-2 text-center">\${escapeHTML(page.caption)}</div>\` : ''}
+                </div>\`;
+            } else {
+                return \`<div class="w-full h-full \${themeClass} flex flex-col md:flex-row overflow-hidden">
+                    <div class="w-full md:w-1/2 h-1/2 md:h-full p-4 sm:p-6 flex flex-col justify-between overflow-y-auto order-2 md:order-1">
+                        <div>
+                            <h2 class="text-base sm:text-lg font-bold mb-2 border-b border-current/15 pb-2">\${escapeHTML(page.title)}</h2>
+                            <div class="text-xs space-y-2 leading-relaxed \${alignClass}">\${paragraphs.map(p => \`<p>\${escapeHTML(p)}</p>\`).join('')}</div>
+                        </div>
+                    </div>
+                    <div class="w-full md:w-1/2 h-1/2 md:h-full bg-black/5 relative overflow-hidden order-1 md:order-2">
+                        \${page.image ? \`<img src="\${page.image}" class="w-full h-full \${imageFitClass}">\` : ''}
+                    </div>
+                </div>\`;
+            }
+        }
+
+        function isMobile() {
+            return window.innerWidth < 768;
+        }
+
+        function render() {
+            const leftEl = document.getElementById('leftPg');
+            const rightEl = document.getElementById('rightPg');
+            const mobile = isMobile();
+
+            if (mobile) {
+                rightEl.classList.add('hidden');
+                rightEl.classList.remove('flex');
+
+                leftEl.innerHTML = renderPageHTML(pages[currentIndex]);
+                document.getElementById('pageIndicator').innerText = \`Halaman \${currentIndex + 1} dari \${pages.length}\`;
+                document.getElementById('btnPrev').disabled = currentIndex === 0;
+                document.getElementById('btnNext').disabled = currentIndex >= pages.length - 1;
+            } else {
+                rightEl.classList.remove('hidden');
+                rightEl.classList.add('flex');
+
+                const spreadIdx = Math.floor(currentIndex / 2);
+                const leftIdx = spreadIdx * 2;
+                const rightIdx = leftIdx + 1;
+
+                leftEl.innerHTML = renderPageHTML(pages[leftIdx]);
+                rightEl.innerHTML = renderPageHTML(pages[rightIdx]);
+
+                document.getElementById('pageIndicator').innerText = \`Halaman \${leftIdx + 1} \${pages[rightIdx] ? '- ' + (rightIdx + 1) : ''} dari \${pages.length}\`;
+                document.getElementById('btnPrev').disabled = leftIdx === 0;
+                document.getElementById('btnNext').disabled = rightIdx >= pages.length - 1;
+            }
+        }
+
+        function prev() {
+            if (isMobile()) {
+                if (currentIndex > 0) {
+                    playSound();
+                    currentIndex--;
+                    render();
+                }
+            } else {
+                const currentSpread = Math.floor(currentIndex / 2);
+                if (currentSpread > 0) {
+                    playSound();
+                    currentIndex = (currentSpread - 1) * 2;
+                    render();
+                }
+            }
+        }
+
+        function next() {
+            if (isMobile()) {
+                if (currentIndex < pages.length - 1) {
+                    playSound();
+                    currentIndex++;
+                    render();
+                }
+            } else {
+                const currentSpread = Math.floor(currentIndex / 2);
+                if ((currentSpread + 1) * 2 < pages.length) {
+                    playSound();
+                    currentIndex = (currentSpread + 1) * 2;
+                    render();
+                }
+            }
+        }
+
+        // Setup Touch Swipe
+        const mainContainer = document.getElementById('mainBookContainer');
+        mainContainer.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, { passive: true });
+
+        mainContainer.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            touchEndY = e.changedTouches[0].screenY;
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
+            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 40) {
+                if (deltaX < 0) next();
+                else prev();
+            }
+        }, { passive: true });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') next();
+            if (e.key === 'ArrowLeft') prev();
+        });
+
+        window.addEventListener('resize', render);
+
+        render();
+    <\/script>
+</body>
+</html>`;
+
+            const blob = new Blob([htmlTemplate], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${bookState.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}_interactive_book.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast('Buku interaktif HTML berhasil diekspor!');
+        }
+
+        function exportJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(bookState, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `${bookState.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}_project.json`);
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+            showToast('Proyek berhasil disimpan sebagai JSON!');
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (parsed && Array.isArray(parsed.pages)) {
+                        bookState = parsed;
+                        document.getElementById('globalBookTitle').value = bookState.title || 'Buku Cerita';
+                        bookState.activePageIndex = 0;
+                        renderThumbnails();
+                        loadActivePageEditor();
+                        showToast('Proyek berhasil dimuat!');
+                    } else {
+                        showToast('Format JSON tidak valid!', 'warning');
+                    }
+                } catch (err) {
+                    showToast('Gagal membaca file JSON!', 'warning');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Helper Toast Notification System
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.innerText = msg;
+            if (type === 'warning') {
+                toastIcon.className = 'fa-solid fa-triangle-exclamation text-amber-400 text-lg';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400 text-lg';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
